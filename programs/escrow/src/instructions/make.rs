@@ -1,7 +1,7 @@
-use anchor_lang::{accounts::program, prelude::*};
+use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken, 
-    token_interface::{close_account, transfer_checked, Mint, TokenAccount, TokenInterface, CloseAccount, TransferChecked}
+    token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked}
 };
 
 use crate::state::EscrowState;
@@ -56,7 +56,7 @@ impl<'info> Make<'info> {
     }
 
     pub fn deposit(&mut self, amount: u64) -> Result<()> {
-        let cpi_program = self.system_program.to_account_info();
+        let cpi_program = self.token_program.to_account_info();
 
         let cpi_accounts = TransferChecked {
             from: self.maker_mint_a_ata.to_account_info(),
