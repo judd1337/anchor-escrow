@@ -1,4 +1,4 @@
-use anchor_lang::{accounts::program, prelude::*};
+use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken, 
     token_interface::{close_account, transfer_checked, Mint, TokenAccount, TokenInterface, CloseAccount, TransferChecked}
@@ -7,7 +7,6 @@ use anchor_spl::{
 use crate::state::EscrowState;
 
 #[derive(Accounts)]
-#[instruction(seed:u64)]
 pub struct Refund<'info> {
     #[account(mut)]
     pub maker: Signer<'info>,
@@ -22,8 +21,8 @@ pub struct Refund<'info> {
 
     #[account(
         mut,
-        close=maker,
-        seeds=[b"escrow", maker.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
+        close = maker,
+        seeds = [b"escrow", maker.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
         bump=escrow.bump
     )]
     pub escrow: Account<'info, EscrowState>,
@@ -41,16 +40,24 @@ pub struct Refund<'info> {
 
 impl<'info> Refund<'info> {
     pub fn withdraw(&mut self) -> Result<()> {
-        let cpi_program = self.system_program.to_account_info();
+        let cpi_program = self.token_program.to_account_info();
 
         let cpi_accounts = TransferChecked {
+            from: self.vault.to_account_info(),
             to: self.maker_mint_a_ata.to_account_info(),
             mint: self.mint_a.to_account_info(),
-            from: self.vault.to_account_info(),
-            authority: self.maker.to_account_info(),
+            authority: self.escrow.to_account_info(),
         };
 
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        let seed_binding = self.escrow.seed.to_le_bytes();
+        let maker_binding = self.escrow.maker.to_bytes();
+        let bump_binding = self.escrow.bump;
+
+        let seeds: [&[u8]; 4] = [ b"escrow", &maker_binding, &seed_binding, &[bump_binding]];
+
+        let signer_seeds: &[&[&[u8]]] = &[&seeds];
+
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
 
         transfer_checked(cpi_ctx, self.vault.amount, self.mint_a.decimals)?;
 
@@ -70,7 +77,7 @@ impl<'info> Refund<'info> {
         let maker_binding = self.escrow.maker.to_bytes();
         let bump_binding = self.escrow.bump;
 
-        let seeds: [&[u8]; 4] = [ b"escrow", &seed_binding, &maker_binding, &[bump_binding]];
+        let seeds: [&[u8]; 4] = [ b"escrow", &maker_binding, &seed_binding, &[bump_binding]];
 
         let signer_seeds: &[&[&[u8]]] = &[&seeds];
 

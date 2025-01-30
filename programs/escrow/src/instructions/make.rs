@@ -60,8 +60,8 @@ impl<'info> Make<'info> {
 
         let cpi_accounts = TransferChecked {
             from: self.maker_mint_a_ata.to_account_info(),
-            mint: self.mint_a.to_account_info(),
             to: self.vault.to_account_info(),
+            mint: self.mint_a.to_account_info(),
             authority: self.maker.to_account_info(),
         };
 

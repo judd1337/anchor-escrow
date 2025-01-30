@@ -128,6 +128,8 @@ describe("escrow", () => {
   });
 
   it("Refund - lets refund from the escrow!", async () => {
+    console.log("Before accounts even! ...");
+
     const accounts = {
       maker: maker.publicKey,
       mintA: mintA.publicKey,
@@ -138,31 +140,18 @@ describe("escrow", () => {
       //associated_token_program,
       tokenProgram,
       //system_program,
-    }
+    };
 
-    let depositAmount = new BN(100); // Maker's deposit amount
-    let receiveAmount = new BN(1000); // Taker's expected token amount
+    console.log("Invoking refund instruction...");
 
     // Call the `make` instruction
     const tx = await program.methods
       .refund()
-      //.accountsPartial({})
-      //.accountsStrict({})
-      //.accounts({
       .accountsPartial({
         ...accounts
       })
       .signers([maker]) // Sign with the maker's keypair
       .rpc();
-
-      // Verify the escrow state was initialized correctly
-      /*
-      const escrowAccount = await program.account.escrowState.fetch(escrow);
-      assert.ok(escrowAccount.maker.equals(maker.publicKey));
-      assert.ok(escrowAccount.receiveAmount.eq(receiveAmount));
-      assert.ok(escrowAccount.seed.eq(seed));
-      console.log("Escrow account initialized successfully:", escrowAccount);
-      */
       
   });
 });
