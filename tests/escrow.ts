@@ -74,7 +74,7 @@ describe("escrow", () => {
       .flatMap((x) => [
         createInitializeMint2Instruction(x.mint, 6, x.authority, null, tokenProgram),
         createAssociatedTokenAccountIdempotentInstruction(provider.publicKey, x.ata, x.authority, x.mint, tokenProgram),
-        createMintToInstruction(x.mint, x.ata, x.authority, 1e9, undefined, tokenProgram),  
+        createMintToInstruction(x.mint, x.ata, x.authority, 1e6, undefined, tokenProgram),  
       ])
 
       //createInitializeMint2Instruction(mintA.publicKey, 6, maker.publicKey, null, tokenProgram),
@@ -142,9 +142,15 @@ describe("escrow", () => {
       //system_program,
     };
 
-    console.log("Invoking refund instruction...");
+    // Fetch balances before refund
+    const vaultBefore = await provider.connection.getTokenAccountBalance(vault);
+    const makerBefore = await provider.connection.getTokenAccountBalance(makerMintAAta);
 
-    // Call the `make` instruction
+    console.log("Vault balance before refund:", vaultBefore.value.amount);
+    console.log("Maker ATA balance before refund:", makerBefore.value.amount);
+
+    // Call the refund instruction
+    console.log("Invoking refund instruction...");
     const tx = await program.methods
       .refund()
       .accountsPartial({
@@ -153,6 +159,36 @@ describe("escrow", () => {
       .signers([maker]) // Sign with the maker's keypair
       .rpc();
       
+    console.log("Refund transaction signature:", tx);
+
+    // Fetch balance after refund
+    const makerAfter = await provider.connection.getTokenAccountBalance(makerMintAAta);
+    console.log("Maker ATA balance after refund:", makerAfter.value.amount);
+    
+    // **ASSERTIONS**
+
+    // 1. Ensure maker received the refunded tokens
+    assert.strictEqual(
+      parseInt(makerAfter.value.amount) - parseInt(makerBefore.value.amount),
+      parseInt(vaultBefore.value.amount),
+      "Maker should receive the exact amount refunded from the vault"
+    );
+
+    // 2. Ensure escrow account is closed
+    try {
+      await program.account.escrowState.fetch(escrow);
+      assert.fail("Escrow account should be closed after refund");
+    } catch (error) {
+      assert.ok("Escrow account successfully closed after refund");
+    }
+
+    // 3. Ensure vault account is closed
+    try {
+      await program.account.escrowState.fetch(vault);
+      assert.fail("Escrow account should be closed after refund");
+    } catch (error) {
+      assert.ok("Escrow account successfully closed after refund");
+    }
   });
 });
 
