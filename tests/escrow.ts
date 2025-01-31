@@ -190,6 +190,104 @@ describe("escrow", () => {
       assert.ok("Escrow account successfully closed after refund");
     }
   });
+
+  it("Take - lets take from the escrow!", async () => {
+    console.log("Before accounts even! ...");
+
+    console.log("before setting up accounts for make");
+    // 1. First run Make before we can run Take
+    const make_accounts = {
+      maker: maker.publicKey,
+      mintA: mintA.publicKey,
+      mintB: mintB.publicKey,
+      makerMintAAta,
+      escrow,
+      vault,
+      tokenProgram,
+    }
+
+    let depositAmount = new BN(100); // Maker's deposit amount
+    let receiveAmount = new BN(1000); // Taker's expected token amount
+
+    console.log("before calling make");
+    // Call the `make` instruction
+    const make_tx = await program.methods
+      .make(seed, receiveAmount, depositAmount)
+      .accountsPartial({
+        ...make_accounts
+      })
+      .signers([maker]) // Sign with the maker's keypair
+      .rpc();
+
+    console.log("after calling make");
+    // Fetch balances before refund
+    const vaultBefore = await provider.connection.getTokenAccountBalance(vault);
+    const takerBefore = await provider.connection.getTokenAccountBalance(takerMintBAta);
+
+    console.log("Vault balance before take:", vaultBefore.value.amount);
+    console.log("Taker ATA balance before take:", takerBefore.value.amount);
+
+    // 2. Call the 'Take' instruction
+    const accounts = {
+      taker: taker.publicKey,
+      maker: maker.publicKey,
+      mintA: mintA.publicKey,
+      mintB: mintB.publicKey,
+      takerMintBAta,
+      escrow,
+      vault,
+      tokenProgram,
+    };
+
+    // Call the take instruction
+    console.log("Invoking take instruction...");
+    try {
+      const take_tx = await program.methods
+      .take()
+      .accountsPartial({
+        ...accounts
+      })
+      .signers([taker]) // Sign with the taker's keypair
+      .rpc();
+      
+      console.log("take transaction signature:", take_tx);
+    }  catch(e) {
+      console.log(e);
+      throw(e)
+    }
+    
+
+    // Fetch balance after take
+    const takerMintAAta = getAssociatedTokenAddressSync(mintA.publicKey, taker.publicKey, false, tokenProgram);
+    const takerAfter = await provider.connection.getTokenAccountBalance(takerMintAAta);
+    console.log("Taker ATA balance after take:", takerAfter.value.amount);
+    
+    // **ASSERTIONS**
+
+    // 1. Ensure taker received the taken tokens
+    assert.strictEqual(
+      parseInt(takerAfter.value.amount), parseInt(vaultBefore.value.amount),
+      "Taker should receive the exact amount taken from the vault"
+    );
+
+    // 2. Ensure escrow account is closed
+    try {
+      await program.account.escrowState.fetch(escrow);
+      assert.fail("Escrow account should be closed after take");
+    } catch (error) {
+      assert.ok("Escrow account successfully closed after take");
+    }
+
+    // 3. Ensure vault account is closed
+    try {
+      await program.account.escrowState.fetch(vault);
+      assert.fail("Escrow account should be closed after refund");
+    } catch (error) {
+      assert.ok("Escrow account successfully closed after refund");
+    }
+  });
+
+
 });
 
 
